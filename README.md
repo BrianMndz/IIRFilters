@@ -1,7 +1,4 @@
-# Audio-Plugin-Template
-
-This is a template repository for a JUCE project using CMake and Xcode.
-_Based on the Pamplejuce by Sudara but for beginners._
+# IIRFilters
 
 ## Getting Started
 git clone your new repo

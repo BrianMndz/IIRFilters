@@ -1,13 +1,13 @@
 # Example Audio Plugin CMakeLists.txt
 cmake_minimum_required(VERSION 3.24)
 
-set(PROJECT_NAME MyAwesomePlugin)
+set(PROJECT_NAME IIRFilters)
 
 # Change here the project name
 project(${PROJECT_NAME} VERSION 0.0.1)
 
 set (CMAKE_CXX_STANDARD 17)
-set (COMPANY_NAME "Company Name")
+set (COMPANY_NAME "DP Ports")
 set (CMAKE_XCODE_GENERATE_SCHEME OFF)
 set (CMAKE_EXPORT_COMPILE_COMMANDS on)
 set (CMAKE_OSX_ARCHITECTURES "x86_64;arm64")
