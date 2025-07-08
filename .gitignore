@@ -1,0 +1,42 @@
+# Ignore build artifacts and compiled files
+build/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
+*.cbp
+*.layout
+*.depends
+
+# Ignore IDE-specific files and directories
+.vscode/
+.idea/
+*.sln
+*.vcxproj
+*.user
+*.user.workspace
+
+# Xcode specific
+*.xcworkspace
+*.xcuserdata
+*.xcuserdatad
+*.xcodeproj
+
+# Ignore system-specific files
+*.DS_Store
+Thumbs.db
+
+# Ignore JUCE generated files and build artifacts
+JuceLibraryCode/
+Projucer/
+
+# Ignore compiled binaries (you can customize this list based on your target platform)
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Ignore CMake build directories (modify this if your build directory is different)
+# This is especially important for out-of-source builds
+cmake-build-debug/
+cmake-build-release/
