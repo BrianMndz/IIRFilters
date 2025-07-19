@@ -14,15 +14,15 @@ namespace wpdsp {
         Biquad() = default;
         ~Biquad() = default;
 
-        void reset (double sampleRate);
+        void reset();
         double processAudioSample (double sample);
         void setCoefficients (const double *coefficients);
-        void setAlgorithm(BiquadAlgorithm newAlgo);
+        void setAlgorithm (BiquadAlgorithm newAlgo);
 
     private:
         std::array<double, numCoeffs> m_coefficients{};
         std::array<double, numStates> m_state{};
-        BiquadAlgorithm algorithm = BiquadAlgorithm::kDirect;
+        BiquadAlgorithm m_biquadAlgorithm = BiquadAlgorithm::kDirect;
     };
 }
 
