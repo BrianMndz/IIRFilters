@@ -9,50 +9,12 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
                       #endif
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
-                       ),
-       apvts(*this, nullptr, "PARAMETERS", createParameterLayout())
+                       )
 {
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor()
 {
-}
-
-//==============================================================================
-juce::AudioProcessorValueTreeState::ParameterLayout AudioPluginAudioProcessor::createParameterLayout()
-{
-    std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
-    
-    // Filter Type Parameter
-    juce::StringArray filterTypeChoices = { 
-        "LPF1P", "LPF1", "HPF1", "LPF2", "HPF2", "BPF2", "BSF2", 
-        "ButterLPF2", "ButterHPF2", "ButterBPF2", "ButterBSF2", 
-        "MMALPF2", "MMALPF2B", "LowShelf", "HiShelf", 
-        "NCQParaEQ", "CQParaEQ", "LWRLPF2", "LWRHPF2",
-        "APF1", "APF2", "ResonA", "ResonB", 
-        "MatchLP2A", "MatchLP2B", "MatchBP2A", "MatchBP2B",
-        "ImpInvLP1", "ImpInvLP2"
-    };
-    
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID("TYPE", 1), "Filter Type", filterTypeChoices, 3));
-    
-    // Cutoff Frequency Parameter (20Hz to 20kHz, logarithmic scale)
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID("CUTOFF", 1), "Cutoff", 
-        juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.25f), 1000.0f));
-    
-    // Q Parameter (0.1 to 18, linear scale)
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID("Q", 1), "Q", 
-        juce::NormalisableRange<float>(0.1f, 18.0f, 0.01f), 0.707f));
-    
-    // Gain Parameter (-24dB to +24dB, linear scale)
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID("GAIN", 1), "Gain", 
-        juce::NormalisableRange<float>(-24.0f, 24.0f, 0.1f), 0.0f));
-    
-    return { params.begin(), params.end() };
 }
 
 //==============================================================================
@@ -133,9 +95,9 @@ void AudioPluginAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
     smoothedGain.reset(sampleRate, 0.01);
     
     // Set initial parameter values
-    smoothedCutoff.setCurrentAndTargetValue(*apvts.getRawParameterValue("CUTOFF"));
-    smoothedQ.setCurrentAndTargetValue(*apvts.getRawParameterValue("Q"));
-    smoothedGain.setCurrentAndTargetValue(*apvts.getRawParameterValue("GAIN"));
+    smoothedCutoff.setTargetValue(*apvts.getRawParameterValue(IIRFilters::cutoffFrequency));
+    smoothedQ.setTargetValue(*apvts.getRawParameterValue(IIRFilters::qVal));
+    smoothedGain.setTargetValue(*apvts.getRawParameterValue(IIRFilters::GainDb));
     
     juce::ignoreUnused(samplesPerBlock);
 }
@@ -183,22 +145,7 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // Get current parameter values
-    auto typeIndex = static_cast<int>(*apvts.getRawParameterValue("TYPE"));
-    auto currentAlgorithm = static_cast<wpdsp::FilterAlgorithm>(typeIndex);
-    
-    // Check if algorithm changed to avoid unnecessary updates
-    if (currentAlgorithm != lastAlgorithm)
-    {
-        leftFilter.setAlgorithm(currentAlgorithm);
-        rightFilter.setAlgorithm(currentAlgorithm);
-        lastAlgorithm = currentAlgorithm;
-    }
-    
-    // Set smoothed parameter targets
-    smoothedCutoff.setTargetValue(*apvts.getRawParameterValue("CUTOFF"));
-    smoothedQ.setTargetValue(*apvts.getRawParameterValue("Q"));
-    smoothedGain.setTargetValue(*apvts.getRawParameterValue("GAIN"));
+    updateParameters();
     
     const int numSamples = buffer.getNumSamples();
     
@@ -236,6 +183,27 @@ void AudioPluginAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 }
 
+void AudioPluginAudioProcessor::updateParameters()
+{
+    // Get current parameter values
+    auto typeIndex = static_cast<int>(*apvts.getRawParameterValue(IIRFilters::filterType));
+    auto currentAlgorithm = static_cast<wpdsp::FilterAlgorithm>(typeIndex);
+
+    // Check if algorithm changed to avoid unnecessary updates
+    if (currentAlgorithm != lastAlgorithm)
+    {
+        leftFilter.setAlgorithm(currentAlgorithm);
+        rightFilter.setAlgorithm(currentAlgorithm);
+        lastAlgorithm = currentAlgorithm;
+    }
+
+    // Set smoothed parameter targets
+    smoothedCutoff.setTargetValue(*apvts.getRawParameterValue(IIRFilters::cutoffFrequency));
+    smoothedQ.setTargetValue(*apvts.getRawParameterValue(IIRFilters::qVal));
+    smoothedGain.setTargetValue(*apvts.getRawParameterValue(IIRFilters::GainDb));
+}
+
+
 //==============================================================================
 bool AudioPluginAudioProcessor::hasEditor() const
 {
@@ -250,18 +218,17 @@ juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 //==============================================================================
 void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    auto state = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml(state.createXml());
-    copyXmlToBinary(*xml, destData);
+    juce::MemoryOutputStream mos(destData, true);
+    apvts.state.writeToStream(mos);
 }
 
 void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    std::unique_ptr<juce::XmlElement> xmlState(getXmlFromBinary(data, sizeInBytes));
-    
-    if (xmlState.get() != nullptr)
-        if (xmlState->hasTagName(apvts.state.getType()))
-            apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+    auto tree = juce::ValueTree::readFromData(data, static_cast<size_t>(sizeInBytes));
+    if (tree.isValid())
+    {
+        apvts.replaceState(tree);
+    }
 }
 
 //==============================================================================

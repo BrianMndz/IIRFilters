@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "dsp/AudioFilter.h"
+#include "Helpers/Parameters.h"
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -43,14 +44,10 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters", IIRFilters::createParameters() };
+
 private:
     //==============================================================================
-    // Parameter Layout Creation
-    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    
-    // JUCE Parameters
-    juce::AudioProcessorValueTreeState apvts;
-    
     // DSP Objects - separate instances for each channel
     wpdsp::AudioFilter leftFilter;
     wpdsp::AudioFilter rightFilter;
@@ -62,6 +59,8 @@ private:
     
     // Track last algorithm to avoid unnecessary updates
     wpdsp::FilterAlgorithm lastAlgorithm = wpdsp::FilterAlgorithm::kLPF2;
+
+    void updateParameters();
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };
