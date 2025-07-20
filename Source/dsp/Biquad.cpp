@@ -1,7 +1,5 @@
 #include "Biquad.h"
 
-#include <dispatch/data.h>
-
 namespace wpdsp {
 
     void Biquad::reset() {
@@ -52,8 +50,8 @@ namespace wpdsp {
         return sample; // Should not happen
     }
 
-    void Biquad::setCoefficients(const double *coefficients) {
-        std::memcpy(m_coefficients.data(), coefficients, sizeof(double) * numCoeffs);
+    void Biquad::setCoefficients(const std::array<double, numCoeffs>& coefficients) {
+        std::memcpy(m_coefficients.data(), coefficients.data(), sizeof(double) * numCoeffs);
     }
 
     void Biquad::setAlgorithm(BiquadAlgorithm newAlgo) {

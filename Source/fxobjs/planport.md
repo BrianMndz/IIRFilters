@@ -166,6 +166,8 @@ namespace DSP
 
 This file contains the actual DSP logic. It only includes its own header. The `processAudioSample` function is a direct port of the original logic, adapted for the `std::array` members.
 
+**IMPORTANT**: Include underflow protection and accurate algorithm implementations from the original fxobjects.h.
+
 ```cpp
 #include "Biquad.h"
 
@@ -200,10 +202,16 @@ namespace DSP
 
         if (algorithm == BiquadAlgorithm::kTransposeDirect)
         {
-            double wn = inputSample + s[x_z1];
-            double yn = c[a0] * wn + s[y_z1];
-            s[x_z1] = c[a1] * wn - c[b1] * yn + s[x_z2];
-            s[x_z2] = c[a2] * wn - c[b2] * yn;
+            // --- w(n) = x(n) + stateArray[y_z1]
+            double wn = inputSample + s[y_z1];
+            // --- y(n) = a0*w(n) + stateArray[x_z1]
+            double yn = c[a0] * wn + s[x_z1];
+            
+            // --- Update states (correct order from original)
+            s[y_z1] = s[y_z2] - c[b1] * wn;
+            s[y_z2] = -c[b2] * wn;
+            s[x_z1] = s[x_z2] + c[a1] * wn;
+            s[x_z2] = c[a2] * wn;
             return yn;
         }
 
@@ -400,3 +408,261 @@ void MyPluginAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 ```
 
 By adopting this architecture, your core `AudioFilter` logic remains clean, portable, and easy to unit-test, while the `PluginProcessor` handles all the framework-specific responsibilities.
+
+---
+
+## 7. Critical Implementation Notes and Improvements
+
+Based on analysis of the original fxobjects.h implementation, these improvements are essential:
+
+### 7.1 Underflow Protection
+The original implementation includes `checkFloatUnderflow()` after each `yn` calculation. This should be ported to prevent denormal numbers:
+
+```cpp
+// Add to Utilities.h
+inline bool checkFloatUnderflow(double& value)
+{
+    const double kSmallestPositiveFloatValue = 1.175494351e-38;
+    const double kSmallestNegativeFloatValue = -1.175494351e-38;
+    
+    bool retValue = false;
+    if (value > 0.0 && value < kSmallestPositiveFloatValue)
+    {
+        value = 0;
+        retValue = true;
+    }
+    else if (value < 0.0 && value > kSmallestNegativeFloatValue)
+    {
+        value = 0;
+        retValue = true;
+    }
+    return retValue;
+}
+```
+
+### 7.2 Efficient Parameter Change Detection
+The original AudioFilter only recalculates coefficients when parameters actually change. Implement this pattern:
+
+```cpp
+// In AudioFilter setter methods
+void AudioFilter::setCutoffFrequency(double newFreq)
+{
+    if (cutoffFrequency != newFreq)
+    {
+        cutoffFrequency = newFreq;
+        recalculateCoefficients();
+    }
+}
+```
+
+### 7.3 Proper Wet/Dry Mixing for Shelving Filters
+The original uses `c0` (wet) and `d0` (dry) coefficients for certain filter types. Implement in `AudioFilter::processAudioSample`:
+
+```cpp
+double AudioFilter::processAudioSample(double inputSample)
+{
+    double biquadOutput = biquad.processAudioSample(inputSample);
+    
+    // Apply wet/dry mixing for shelving and EQ filters
+    return dryGain * inputSample + wetGain * biquadOutput;
+}
+```
+
+### 7.4 Namespace Consistency
+**IMPORTANT**: Use consistent namespace throughout the project. The current implementation uses `wpdsp`, while this plan suggests `IIRFilters::DSP`. Choose one and stick with it.
+
+### 7.5 Accurate Algorithm Implementation
+Ensure the TransposeDirect algorithm matches the original exactly:
+
+```cpp
+// CORRECT TransposeDirect implementation (from original)
+if (algorithm == BiquadAlgorithm::kTransposeDirect)
+{
+    double wn = inputSample + s[y_z1];
+    double yn = c[a0] * wn + s[x_z1];
+    
+    // Critical: Update order matters!
+    s[y_z1] = s[y_z2] - c[b1] * wn;
+    s[y_z2] = -c[b2] * wn;
+    s[x_z1] = s[x_z2] + c[a1] * wn;
+    s[x_z2] = c[a2] * wn;
+    
+    checkFloatUnderflow(yn);
+    return yn;
+}
+```
+
+### 7.6 Modern C++ Enhancements
+- Add `[[nodiscard]]` to `processAudioSample` methods
+- Use `constexpr` for compile-time constants
+- Consider `std::array` overloads for `setCoefficients`:
+
+```cpp
+void setCoefficients(const std::array<double, NumCoeffs>& newCoeffs)
+{
+    coeffs = newCoeffs;
+}
+```
+
+### 7.7 Parameter Update Optimization
+Instead of updating every sample, cache parameter changes and only update when needed:
+
+```cpp
+// In PluginProcessor::processBlock - OUTSIDE the sample loop
+bool parametersChanged = false;
+if (newFreq != lastFreq) { filter.setCutoffFrequency(newFreq); parametersChanged = true; }
+if (newQ != lastQ) { filter.setQ(newQ); parametersChanged = true; }
+// etc.
+
+// Then process audio samples without per-sample parameter updates
+```
+
+This approach maintains compatibility with the original while modernizing the codebase and improving performance.
+
+---
+
+## 8. Critical Implementation Details from Original Code Analysis
+
+After examining the original fxobjects.h and fxobjects.cpp, these additional implementation details are essential:
+
+### 8.1 Complete AudioFilter::processAudioSample Implementation
+The original AudioFilter implements essential wet/dry mixing using c0 and d0 coefficients:
+
+```cpp
+// From original fxobjects.cpp line 944
+double AudioFilter::processAudioSample(double xn)
+{
+    // return (dry) + (processed): x(n)*d0 + y(n)*c0
+    return coeffArray[d0] * xn + coeffArray[c0] * biquad.processAudioSample(xn);
+}
+```
+
+**Implementation for framework-agnostic version:**
+```cpp
+double AudioFilter::processAudioSample(double inputSample)
+{
+    double biquadOutput = biquad.processAudioSample(inputSample);
+    return dryGain * inputSample + wetGain * biquadOutput;
+}
+```
+
+### 8.2 Coefficient Array Initialization Pattern
+The original uses a specific pattern in `calculateFilterCoeffs()`:
+
+```cpp
+// Clear coeffs and set defaults (lines 155-161)
+memset(&coeffArray[0], 0, sizeof(double)*numCoeffs);
+coeffArray[a0] = 1.0;    // Default pass-through
+coeffArray[c0] = 1.0;    // Wet gain default
+coeffArray[d0] = 0.0;    // Dry gain default
+```
+
+### 8.3 Critical Coefficient Updates for Shelving/EQ Filters
+Several filter types (kLowShelf, kHiShelf, kNCQParaEQ) set c0 and d0 coefficients:
+
+```cpp
+// Low Shelf (lines 694-695)
+coeffArray[c0] = mu - 1.0;
+coeffArray[d0] = 1.0;
+
+// High Shelf (lines 718-719)  
+coeffArray[c0] = mu - 1.0;
+coeffArray[d0] = 1.0;
+
+// NCQ Para EQ (lines 781-782)
+coeffArray[c0] = mu - 1.0;
+coeffArray[d0] = 1.0;
+```
+
+### 8.4 Complete BiquadAlgorithm Implementation
+
+Based on the original implementation, ensure these exact algorithms:
+
+**kTransposeDirect** (lines 111-133):
+```cpp
+if (algorithm == BiquadAlgorithm::kTransposeDirect)
+{
+    double wn = inputSample + s[y_z1];
+    double yn = c[a0] * wn + s[x_z1];
+    
+    checkFloatUnderflow(yn);
+    
+    // Critical: exact order from original
+    s[y_z1] = s[y_z2] - c[b1] * wn;
+    s[y_z2] = -c[b2] * wn;
+    s[x_z1] = s[x_z2] + c[a1] * wn;
+    s[x_z2] = c[a2] * wn;
+    
+    return yn;
+}
+```
+
+### 8.5 Essential Constants and Dependencies
+
+The original code relies on several constants that must be ported:
+
+```cpp
+// From fxobjects.h (lines 37-42)
+const double kSmallestPositiveFloatValue = 1.175494351e-38;
+const double kSmallestNegativeFloatValue = -1.175494351e-38;
+const double kSqrtTwo = pow(2.0, 0.5);
+const double kMinFilterFrequency = 20.0;
+const double kMaxFilterFrequency = 20480.0;
+```
+
+These constants are used in filters.h which is included by fxobjects.h. The framework-agnostic version should define these in its Constants.h.
+
+### 8.6 Parameter Validation Pattern
+
+The original AudioFilter includes parameter validation:
+
+```cpp
+// From lines 1573-1575
+if (audioFilterParameters.Q <= 0)
+    audioFilterParameters.Q = 0.707;
+```
+
+### 8.7 Complete FilterAlgorithm Enum
+
+The original enum includes 29 filter types that should be preserved:
+
+```cpp
+enum class filterAlgorithm {
+    kLPF1P, kLPF1, kHPF1, kLPF2, kHPF2, kBPF2, kBSF2, 
+    kButterLPF2, kButterHPF2, kButterBPF2, kButterBSF2, 
+    kMMALPF2, kMMALPF2B, kLowShelf, kHiShelf, 
+    kNCQParaEQ, kCQParaEQ, kLWRLPF2, kLWRHPF2,
+    kAPF1, kAPF2, kResonA, kResonB, 
+    kMatchLP2A, kMatchLP2B, kMatchBP2A, kMatchBP2B,
+    kImpInvLP1, kImpInvLP2
+};
+```
+
+### 8.8 Dependency on filters.h Constants
+
+The original code includes "filters.h" which likely defines constants like kPi, kTwoPi used throughout the coefficient calculations. The framework-agnostic version must include these:
+
+```cpp
+// Required constants for coefficient calculations
+constexpr double kPi = 3.141592653589793;
+constexpr double kTwoPi = 2.0 * kPi;
+```
+
+### 8.9 Parameter Change Detection Efficiency
+
+The original uses efficient parameter change detection (lines 1562-1571):
+
+```cpp
+if (audioFilterParameters.algorithm != parameters.algorithm ||
+    audioFilterParameters.boostCut_dB != parameters.boostCut_dB ||
+    audioFilterParameters.fc != parameters.fc ||
+    audioFilterParameters.Q != parameters.Q)
+{
+    // Only update if something actually changed
+    audioFilterParameters = parameters;
+}
+else
+    return; // Early return if no changes
+```
+
+This pattern should be implemented in the framework-agnostic setter methods.

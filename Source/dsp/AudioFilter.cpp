@@ -1,6 +1,6 @@
 #include "AudioFilter.h"
-
-#include "juce_graphics/fonts/harfbuzz/hb-cff-interp-cs-common.hh"
+#include <cmath>
+#include <array>
 
 namespace wpdsp {
 
@@ -15,8 +15,33 @@ namespace wpdsp {
     }
 
     double AudioFilter::processAudioSample(double sample) {
+        if (m_coefficientsChanged)
+        {
+            recalculateCoefficients();
+            m_coefficientsChanged = false;
+        }
         // return (dry) + (processed): x(n)*d0 + y(n) * c0
         return m_dry * sample + m_wet * biquad.processAudioSample(sample);
+    }
+
+    void AudioFilter::setAlgorithm(FilterAlgorithm newAlgorithm) {
+        m_filterAlgorithm = newAlgorithm;
+        m_coefficientsChanged = true;
+    }
+
+    void AudioFilter::setCutoff(double newCutoff) {
+        m_freqCutoff = newCutoff;
+        m_coefficientsChanged = true;
+    }
+
+    void AudioFilter::setQ(double newQ) {
+        m_Q = newQ > 0 ? newQ : 0.707;
+        m_coefficientsChanged = true;
+    }
+
+    void AudioFilter::setGainDb(double newGainDb) {
+        m_gainDb = newGainDb;
+        m_coefficientsChanged = true;
     }
 
     void AudioFilter::recalculateCoefficients() {
@@ -342,7 +367,7 @@ namespace wpdsp {
 				double delta = K*K*m_Q + K + m_Q;
 
 				// --- update coeffs
-				biquadCoeffs[a0] = K / delta;;
+				biquadCoeffs[a0] = K / delta;
 				biquadCoeffs[a1] = 0.0;
 				biquadCoeffs[a2] = -K / delta;
 				biquadCoeffs[b1] = 2.0*m_Q*(K*K - 1) / delta;
@@ -706,7 +731,7 @@ namespace wpdsp {
                 break;
             }
         }
-        biquad.setCoefficients(biquadCoeffs.data());
+        biquad.setCoefficients(biquadCoeffs);
     }
 
 }

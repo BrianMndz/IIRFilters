@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "dsp/AudioFilter.h"
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -44,5 +45,23 @@ public:
 
 private:
     //==============================================================================
+    // Parameter Layout Creation
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
+    
+    // JUCE Parameters
+    juce::AudioProcessorValueTreeState apvts;
+    
+    // DSP Objects - separate instances for each channel
+    wpdsp::AudioFilter leftFilter;
+    wpdsp::AudioFilter rightFilter;
+    
+    // Parameter smoothing for sample-accurate changes
+    juce::SmoothedValue<double> smoothedCutoff;
+    juce::SmoothedValue<double> smoothedQ;
+    juce::SmoothedValue<double> smoothedGain;
+    
+    // Track last algorithm to avoid unnecessary updates
+    wpdsp::FilterAlgorithm lastAlgorithm = wpdsp::FilterAlgorithm::kLPF2;
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessor)
 };

@@ -15,8 +15,8 @@ namespace wpdsp {
         ~Biquad() = default;
 
         void reset();
-        double processAudioSample (double sample);
-        void setCoefficients (const double *coefficients);
+        [[nodiscard]] double processAudioSample (double sample);
+        void setCoefficients (const std::array<double, numCoeffs>& coefficients);
         void setAlgorithm (BiquadAlgorithm newAlgo);
 
     private:

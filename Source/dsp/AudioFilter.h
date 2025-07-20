@@ -20,35 +20,19 @@ public:
 
     void prepare (double sampleRate);
     void reset();
-    double processAudioSample (double sample);
+    [[nodiscard]] double processAudioSample (double sample);
 
     // --- Parameter Setters ---
-    void setAlgorithm (const FilterAlgorithm newAlgorithm) {
-        m_filterAlgorithm = newAlgorithm;
-        recalculateCoefficients();
-    }
-
-    void setCutoffFrequency (const double newFreq) {
-        m_freqCutoff = newFreq;
-        recalculateCoefficients();
-    }
-
-    void setQ (const double newQ) {
-        if (newQ <= 0.0) {
-            m_Q = 0.707;
-        }
-        recalculateCoefficients();
-    }
-
-    void setGain (const double newGainDb) {
-        m_gainDb = newGainDb;
-        recalculateCoefficients();
-    }
+    void setAlgorithm (FilterAlgorithm newAlgorithm);
+    void setCutoff (double newCutoff);
+    void setQ (double newQ);
+    void setGainDb (double newGainDb);
 
 private:
     void recalculateCoefficients();
 
     Biquad biquad;
+    bool m_coefficientsChanged { true };
     FilterAlgorithm m_filterAlgorithm = FilterAlgorithm::kLPF1;
     double m_sampleRate = 44100.0;
     double m_freqCutoff = 1000.0;
