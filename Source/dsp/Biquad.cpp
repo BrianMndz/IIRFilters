@@ -1,4 +1,5 @@
 #include "Biquad.h"
+#include <cstring>
 
 namespace wpdsp {
 
@@ -16,7 +17,7 @@ namespace wpdsp {
             s[x_z2] = s[x_z1];
             s[x_z1] = sample;
             s[y_z2] = s[y_z1];
-            s[y_z1] = s[yn];
+            s[y_z1] = yn;
             return yn;
         }
         if (m_biquadAlgorithm == BiquadAlgorithm::kCanonical) {

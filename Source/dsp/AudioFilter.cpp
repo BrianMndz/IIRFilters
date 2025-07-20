@@ -20,7 +20,7 @@ namespace wpdsp {
             recalculateCoefficients();
             m_coefficientsChanged = false;
         }
-        // return (dry) + (processed): x(n)*d0 + y(n) * c0
+        // Original formula: return coeffArray[d0] * xn + coeffArray[c0] * biquad.processAudioSample(xn);
         return m_dry * sample + m_wet * biquad.processAudioSample(sample);
     }
 
@@ -49,6 +49,12 @@ namespace wpdsp {
 
         std::array<double, numCoeffs> biquadCoeffs{};
 
+        // Clear coeffs and set defaults (from original implementation)
+        biquadCoeffs.fill(0.0);
+        biquadCoeffs[a0] = 1.0;    // Default pass-through
+    	m_wet = 1.0;
+    	m_dry = 0.0;
+
         switch (m_filterAlgorithm) {
             case FilterAlgorithm::kImpInvLP1: {
                 const double T = 1.0 / m_sampleRate;
@@ -60,10 +66,6 @@ namespace wpdsp {
                 biquadCoeffs[a2] = 0.0;
                 biquadCoeffs[b1] = -eT;
                 biquadCoeffs[b2] = 0.0;
-
-                // This specific filter type does not use the final gain stage
-                m_wet = 1.0;
-                m_dry = 0.0;
                 break;
             }
         	case FilterAlgorithm::kImpInvLP2: {
@@ -80,9 +82,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = -2.0*eP_re*cos(p_Im);
 				biquadCoeffs[b2] = eP_re*eP_re;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
 			// --- kMatchLP2A = TIGHT fit LPF vicanek algo
@@ -130,9 +129,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = a_2;
 				biquadCoeffs[b1] = b_1;
 				biquadCoeffs[b2] = b_2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
 			// --- kMatchLP2B = LOOSE fit LPF vicanek algo
@@ -170,9 +166,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = a_2;
 				biquadCoeffs[b1] = b_1;
 				biquadCoeffs[b2] = b_2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
 			// --- kMatchBP2A = TIGHT fit BPF vicanek algo
@@ -217,9 +210,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = a_2;
 				biquadCoeffs[b1] = b_1;
 				biquadCoeffs[b2] = b_2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
 			// --- kMatchBP2B = LOOSE fit BPF vicanek algo
@@ -258,9 +248,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = a_2;
 				biquadCoeffs[b1] = b_1;
 				biquadCoeffs[b2] = b_2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
 			case FilterAlgorithm::kLPF1P: {
@@ -277,9 +264,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = filter_b1;
 				biquadCoeffs[b2] = 0.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kLPF1: {
@@ -293,9 +277,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = -gamma;
 				biquadCoeffs[b2] = 0.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kHPF1: {
@@ -309,9 +290,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = -gamma;
 				biquadCoeffs[b2] = 0.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kLPF2: {
@@ -334,8 +312,6 @@ namespace wpdsp {
 
 				//double mag = getMagResponse(theta_c, biquadCoeffs[a0], biquadCoeffs[a1], biquadCoeffs[a2], biquadCoeffs[b1], biquadCoeffs[b2]);
 
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kHPF2: {
@@ -356,9 +332,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = alpha;
 				biquadCoeffs[b1] = -2.0*gamma;
 				biquadCoeffs[b2] = 2.0*beta;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kBPF2: {
@@ -372,9 +345,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = -K / delta;
 				biquadCoeffs[b1] = 2.0*m_Q*(K*K - 1) / delta;
 				biquadCoeffs[b2] = (K*K*m_Q - K + m_Q) / delta;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kBSF2: {
@@ -388,9 +358,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = m_Q*(1 + K*K) / delta;
 				biquadCoeffs[b1] = 2.0*m_Q*(K*K - 1) / delta;
 				biquadCoeffs[b2] = (K*K*m_Q - K + m_Q) / delta;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kButterLPF2: {
@@ -404,9 +371,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = biquadCoeffs[a0];
 				biquadCoeffs[b1] = 2.0*biquadCoeffs[a0] * (1.0 - C*C);
 				biquadCoeffs[b2] = biquadCoeffs[a0] * (1.0 - kSqrtTwo*C + C*C);
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kButterHPF2: {
@@ -420,9 +384,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = biquadCoeffs[a0];
 				biquadCoeffs[b1] = 2.0*biquadCoeffs[a0] * (C*C - 1.0);
 				biquadCoeffs[b2] = biquadCoeffs[a0] * (1.0 - kSqrtTwo*C + C*C);
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kButterBPF2: {
@@ -441,9 +402,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = -biquadCoeffs[a0];
 				biquadCoeffs[b1] = -biquadCoeffs[a0] * (C*D);
 				biquadCoeffs[b2] = biquadCoeffs[a0] * (C - 1.0);
-
-				m_wet = 1.0;
-				m_dry = 0.0;
 				break;
 			}
         	case FilterAlgorithm::kButterBSF2: {
@@ -462,9 +420,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = biquadCoeffs[a0];
 				biquadCoeffs[b1] = -biquadCoeffs[a0] * D;
 				biquadCoeffs[b2] = biquadCoeffs[a0] * (1.0 - C);
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kMMALPF2:
@@ -497,9 +452,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = filter_b1;
 				biquadCoeffs[b2] = filter_b2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kLowShelf: {
@@ -518,11 +470,8 @@ namespace wpdsp {
 				biquadCoeffs[b1] = -gamma;
 				biquadCoeffs[b2] = 0.0;
 
-				biquadCoeffs[c0] = mu - 1.0;
-				biquadCoeffs[d0] = 1.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
+				m_wet = mu - 1.0;
+				m_dry = 1.0;
             	break;
 			}
         	case FilterAlgorithm::kHiShelf: {
@@ -539,24 +488,21 @@ namespace wpdsp {
 				biquadCoeffs[b1] = -gamma;
 				biquadCoeffs[b2] = 0.0;
 
-				biquadCoeffs[c0] = mu - 1.0;
-				biquadCoeffs[d0] = 1.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
+				m_wet = mu - 1.0;
+				m_dry = 1.0;
             	break;
 			}
         	case FilterAlgorithm::kCQParaEQ: {
 				// --- see book for formulae
-				double K = tan(M_PI*m_freqCutoff / m_sampleRate);
+				double K = tan(M_PI * m_freqCutoff / m_sampleRate);
 				double Vo = pow(10.0, m_gainDb / 20.0);
 				bool bBoost = m_gainDb >= 0;
 
-				double d0 = 1.0 + (1.0 / m_Q)*K + K*K;
-				double e0 = 1.0 + (1.0 / (Vo*m_Q))*K + K*K;
-				double alpha = 1.0 + (Vo / m_Q)*K + K*K;
-				double beta = 2.0*(K*K - 1.0);
-				double gamma = 1.0 - (Vo / m_Q)*K + K*K;
+				double d0 = 1.0 + (1.0 / m_Q) * K + K * K;
+				double e0 = 1.0 + (1.0 / (Vo*m_Q)) * K + K * K;
+				double alpha = 1.0 + (Vo / m_Q) * K + K * K;
+				double beta = 2.0 * (K * K - 1.0);
+				double gamma = 1.0 - (Vo / m_Q) * K + K*K;
 				double delta = 1.0 - (1.0 / m_Q)*K + K*K;
 				double eta = 1.0 - (1.0 / (Vo*m_Q))*K + K*K;
 
@@ -566,9 +512,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = bBoost ? gamma / d0 : delta / e0;
 				biquadCoeffs[b1] = bBoost ? beta / d0 : beta / e0;
 				biquadCoeffs[b2] = bBoost ? delta / d0 : eta / e0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kNCQParaEQ: {
@@ -596,11 +539,8 @@ namespace wpdsp {
 				biquadCoeffs[b1] = -2.0*gamma;
 				biquadCoeffs[b2] = 2.0*beta;
 
-				biquadCoeffs[c0] = mu - 1.0;
-				biquadCoeffs[d0] = 1.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
+				m_wet = mu - 1.0;
+				m_dry = 1.0;
             	break;
 			}
         	case FilterAlgorithm::kLWRLPF2: {
@@ -619,9 +559,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = biquadCoeffs[a0];
 				biquadCoeffs[b1] = b1_Num / denominator;
 				biquadCoeffs[b2] = b2_Num / denominator;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kLWRHPF2: {
@@ -640,9 +577,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = biquadCoeffs[a0];
 				biquadCoeffs[b1] = b1_Num / denominator;
 				biquadCoeffs[b2] = b2_Num / denominator;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kAPF1: {
@@ -657,9 +591,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = alpha;
 				biquadCoeffs[b2] = 0.0;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kAPF2: {
@@ -680,9 +611,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 1.0;
 				biquadCoeffs[b1] = beta*(1.0 - alpha);
 				biquadCoeffs[b2] = -alpha;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kResonA: {
@@ -699,9 +627,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = 0.0;
 				biquadCoeffs[b1] = filter_b1;
 				biquadCoeffs[b2] = filter_b2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
         	case FilterAlgorithm::kResonB: {
@@ -718,9 +643,6 @@ namespace wpdsp {
 				biquadCoeffs[a2] = -filter_a0;
 				biquadCoeffs[b1] = filter_b1;
 				biquadCoeffs[b2] = filter_b2;
-
-            	m_wet = 1.0;
-            	m_dry = 0.0;
             	break;
 			}
             default: {
@@ -731,6 +653,7 @@ namespace wpdsp {
                 break;
             }
         }
+
         biquad.setCoefficients(biquadCoeffs);
     }
 
