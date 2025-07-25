@@ -33,6 +33,8 @@ juce_add_plugin(${PROJECT_NAME}
         # NEEDS_MIDI_OUTPUT TRUE/FALSE              # Does the plugin need midi output?
         # IS_MIDI_EFFECT TRUE/FALSE                 # Is this plugin a MIDI effect?
         # EDITOR_WANTS_KEYBOARD_FOCUS TRUE/FALSE    # Does the editor need keyboard focus?
+        NEEDS_WEB_BROWSER TRUE
+        NEEDS_CURL TRUE
         # COPY_PLUGIN_AFTER_BUILD TRUE/FALSE        # Should the plugin be installed to a default location after building?
         PLUGIN_MANUFACTURER_CODE DPrt               # A four-character manufacturer id with at least one upper-case character
         PLUGIN_CODE iirR                            # A unique four-character plugin id with exactly one upper-case character
@@ -64,8 +66,8 @@ target_link_libraries(${PROJECT_NAME}
 target_compile_definitions(${PROJECT_NAME}
         PUBLIC
         # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
-        JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
-        JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
+        # JUCE_WEB_BROWSER=0  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
+        # JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
         JUCE_VST3_CAN_REPLACE_VST2=0)
 
 juce_generate_juce_header(${PROJECT_NAME})

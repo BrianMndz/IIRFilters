@@ -3,25 +3,43 @@
 
 //==============================================================================
 // Simple fallback editor - currently unused since we use GenericAudioProcessorEditor
-AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
+IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
+    // For development, we'll load the HTML file directly from the source directory.
+    // IMPORTANT: This path is for development only. For a release build, you would
+    // embed the GUI files into the binary using juce_add_binary_data.
+    auto relativePath = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+                            .getParentDirectory()
+                            .getParentDirectory()
+                            .getChildFile("Resources")
+                            .getChildFile("GUI")
+                            .getChildFile("index.html");
+
+    if (relativePath.existsAsFile())
+    {
+        webBrowserComponent.goToURL(relativePath.getFullPathName());
+    }
+    else
+    {
+        // Fallback if the file isn't found
+        webBrowserComponent.goToURL("about:blank");
+    }
+
+    addAndMakeVisible(webBrowserComponent);
+
     setSize (400, 300);
 }
 
-AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
-{
-}
+IIRFiltersAudioProcessorEditor::~IIRFiltersAudioProcessorEditor() = default;
 
 //==============================================================================
-void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
+void IIRFiltersAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-    g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("IIR Filters - Fallback Editor", getLocalBounds(), juce::Justification::centred, 1);
 }
 
-void AudioPluginAudioProcessorEditor::resized()
+void IIRFiltersAudioProcessorEditor::resized()
 {
+    webBrowserComponent.setBounds (getLocalBounds());
 }
