@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "PluginEditor.h"
 
 //==============================================================================
 IIRFiltersAudioProcessor::IIRFiltersAudioProcessor()
@@ -212,7 +213,8 @@ bool IIRFiltersAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* IIRFiltersAudioProcessor::createEditor()
 {
-    return new juce::GenericAudioProcessorEditor (*this);
+    // return new juce::GenericAudioProcessorEditor (*this);
+    return new IIRFiltersAudioProcessorEditor (*this);
 }
 
 //==============================================================================

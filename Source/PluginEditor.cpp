@@ -12,8 +12,8 @@ IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioP
     auto relativePath = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
                             .getParentDirectory()
                             .getParentDirectory()
-                            .getChildFile("Resources")
-                            .getChildFile("GUI")
+                            .getChildFile("Source")
+                            .getChildFile("gui")
                             .getChildFile("index.html");
 
     if (relativePath.existsAsFile())
