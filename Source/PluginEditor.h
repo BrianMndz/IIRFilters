@@ -3,7 +3,6 @@
 #include "PluginProcessor.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
-//#include <juce_audio_processors/processors/juce_AudioProcessorEditor.h>
 
 //==============================================================================
 // Simple fallback editor - currently unused since we use GenericAudioProcessorEditor
