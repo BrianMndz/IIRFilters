@@ -9,26 +9,67 @@ IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioP
     // For development, we'll load the HTML file directly from the source directory.
     // IMPORTANT: This path is for development only. For a release build, you would
     // embed the GUI files into the binary using juce_add_binary_data.
-    auto relativePath = juce::File::getSpecialLocation(juce::File::currentExecutableFile)
+    // For development, try multiple possible paths
+    juce::File htmlFile;
+    
+    // Method 1: Relative to executable
+    auto executableFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    auto relativePath = executableFile
                             .getParentDirectory()
                             .getParentDirectory()
                             .getChildFile("Source")
                             .getChildFile("gui")
                             .getChildFile("index.html");
 
-    // if (relativePath.existsAsFile())
-    // {
-    //     webBrowserComponent.goToURL(relativePath.getFullPathName());
-    // }
-    // else
-    // {
-    //     // Fallback if the file isn't found
-    //     webBrowserComponent.goToURL("about:blank");
-    // }
+    DBG("Executable path: " + executableFile.getFullPathName());
+    DBG("Looking for GUI at: " + relativePath.getFullPathName());
+    
+    if (relativePath.existsAsFile())
+    {
+        htmlFile = relativePath;
+    }
+    else
+    {
+        // Method 2: Try going up one more level
+        auto altPath = executableFile
+                          .getParentDirectory()
+                          .getParentDirectory()
+                          .getParentDirectory()
+                          .getChildFile("Source")
+                          .getChildFile("gui")
+                          .getChildFile("index.html");
+        
+        DBG("Trying alternative path 1: " + altPath.getFullPathName());
+        
+        if (altPath.existsAsFile())
+        {
+            htmlFile = altPath;
+        }
+        else
+        {
+            // Method 3: Direct absolute path (for development)
+            auto directPath = juce::File("/Users/brianmendoza/Development/audio/IIRFilters/Source/gui/index.html");
+            DBG("Trying direct path: " + directPath.getFullPathName());
+            
+            if (directPath.existsAsFile())
+            {
+                htmlFile = directPath;
+            }
+        }
+    }
+
+    if (htmlFile.existsAsFile())
+    {
+        DBG("Loading HTML from: " + htmlFile.getFullPathName());
+        webBrowserComponent.goToURL("file://" + htmlFile.getFullPathName());
+    }
+    else
+    {
+        DBG("ERROR: Cannot find index.html file!");
+        webBrowserComponent.goToURL("about:blank");
+    }
 
     addAndMakeVisible(webBrowserComponent);
-
-    webBrowserComponent.goToURL("https://juce.com");
 
     setResizable(true, true);
     setSize (800, 600);
