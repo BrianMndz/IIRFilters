@@ -40,7 +40,8 @@ juce_add_plugin(${PROJECT_NAME}
         PLUGIN_CODE iirR                            # A unique four-character plugin id with exactly one upper-case character
         # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
         FORMATS AU VST3 Standalone                  # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
-        PRODUCT_NAME "IIRFilters")        # The name of the final executable, which can differ from the target name
+        PRODUCT_NAME "IIRFilters"        # The name of the final executable, which can differ from the target name
+        NEEDS_WEBVIEW2 TRUE)
 
 # Add all source files
 set(SourceFiles)
@@ -68,6 +69,7 @@ target_compile_definitions(${PROJECT_NAME}
         # JUCE_WEB_BROWSER and JUCE_USE_CURL would be on by default, but you might not need them.
         JUCE_WEB_BROWSER=1  # If you remove this, add `NEEDS_WEB_BROWSER TRUE` to the `juce_add_plugin` call
         # JUCE_USE_CURL=0     # If you remove this, add `NEEDS_CURL TRUE` to the `juce_add_plugin` call
-        JUCE_VST3_CAN_REPLACE_VST2=0)
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 
 juce_generate_juce_header(${PROJECT_NAME})

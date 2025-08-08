@@ -1,75 +1,56 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
-// Simple fallback editor - currently unused since we use GenericAudioProcessorEditor
-IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p), webBrowserComponent(juce::WebBrowserComponent::Options{})
+static auto streamToVector (InputStream& stream)
 {
-    // For development, we'll load the HTML file directly from the source directory.
-    // IMPORTANT: This path is for development only. For a release build, you would
-    // embed the GUI files into the binary using juce_add_binary_data.
-    // For development, try multiple possible paths
-    juce::File htmlFile;
-    
-    // Method 1: Relative to executable
-    auto executableFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
-    auto relativePath = executableFile
-                            .getParentDirectory()
-                            .getParentDirectory()
-                            .getChildFile("Source")
-                            .getChildFile("gui")
-                            .getChildFile("index.html");
+    std::vector<std::byte> result ((size_t) stream.getTotalLength());
+    stream.setPosition (0);
+    [[maybe_unused]] const auto bytesRead = stream.read (result.data(), result.size());
+    jassert (bytesRead == (ssize_t) result.size());
+    return result;
+}
 
-    DBG("Executable path: " + executableFile.getFullPathName());
-    DBG("Looking for GUI at: " + relativePath.getFullPathName());
-    
-    if (relativePath.existsAsFile())
+static const char* getMimeForExtension (const juce::String& extension)
+{
+    static const std::unordered_map<String, const char*> mimeMap =
     {
-        htmlFile = relativePath;
-    }
-    else
-    {
-        // Method 2: Try going up one more level
-        auto altPath = executableFile
-                          .getParentDirectory()
-                          .getParentDirectory()
-                          .getParentDirectory()
-                          .getChildFile("Source")
-                          .getChildFile("gui")
-                          .getChildFile("index.html");
-        
-        DBG("Trying alternative path 1: " + altPath.getFullPathName());
-        
-        if (altPath.existsAsFile())
-        {
-            htmlFile = altPath;
-        }
-        else
-        {
-            // Method 3: Direct absolute path (for development)
-            auto directPath = juce::File("/Users/brianmendoza/Development/audio/IIRFilters/Source/gui/index.html");
-            DBG("Trying direct path: " + directPath.getFullPathName());
-            
-            if (directPath.existsAsFile())
-            {
-                htmlFile = directPath;
-            }
-        }
-    }
+        { { "htm"   },  "text/html"                },
+        { { "html"  },  "text/html"                },
+        { { "txt"   },  "text/plain"               },
+        { { "jpg"   },  "image/jpeg"               },
+        { { "jpeg"  },  "image/jpeg"               },
+        { { "svg"   },  "image/svg+xml"            },
+        { { "ico"   },  "image/vnd.microsoft.icon" },
+        { { "json"  },  "application/json"         },
+        { { "png"   },  "image/png"                },
+        { { "css"   },  "text/css"                 },
+        { { "map"   },  "application/json"         },
+        { { "js"    },  "text/javascript"          },
+        { { "woff2" },  "font/woff2"               }
+    };
 
-    if (htmlFile.existsAsFile())
-    {
-        DBG("Loading HTML from: " + htmlFile.getFullPathName());
-        webBrowserComponent.goToURL("file://" + htmlFile.getFullPathName());
-    }
-    else
-    {
-        DBG("ERROR: Cannot find index.html file!");
-        webBrowserComponent.goToURL("about:blank");
-    }
+    if (const auto it = mimeMap.find (extension.toLowerCase()); it != mimeMap.end())
+        return it->second;
 
-    addAndMakeVisible(webBrowserComponent);
+    jassertfalse;
+    return "";
+}
+
+//==============================================================================
+IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioProcessor& p)
+    : AudioProcessorEditor (&p), processorRef (p),
+    webView{juce::WebBrowserComponent::Options{}.withBackend(
+        juce::WebBrowserComponent::Options::Backend::webview2)
+        .withWinWebView2Options(juce::WebBrowserComponent::Options::WinWebView2{}
+            .withUserDataFolder(juce::File::getSpecialLocation(juce::File::tempDirectory)))
+            .withResourceProvider(
+                [this](const auto &url) { return getResource(url);})}
+{
+    juce::ignoreUnused(processorRef);
+
+    addAndMakeVisible(webView);
+
+    webView.goToURL(webView.getResourceProviderRoot());
 
     setResizable(true, true);
     setSize (800, 600);
@@ -77,13 +58,26 @@ IIRFiltersAudioProcessorEditor::IIRFiltersAudioProcessorEditor (IIRFiltersAudioP
 
 IIRFiltersAudioProcessorEditor::~IIRFiltersAudioProcessorEditor() = default;
 
-//==============================================================================
-// void IIRFiltersAudioProcessorEditor::paint (juce::Graphics& g)
-// {
-//     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-// }
-
 void IIRFiltersAudioProcessorEditor::resized()
 {
-    webBrowserComponent.setBounds (getLocalBounds());
+    webView.setBounds (getLocalBounds());
+}
+
+auto IIRFiltersAudioProcessorEditor::getResource(const juce::String& url) -> std::optional<Resource>
+{
+    std::cout << url << std::endl;
+
+    static const auto resourceFileRoot = juce::File{"/Users/brianmendoza/Development/audio/IIRFilters/Source/gui"};
+
+    const auto resourceToRetrieve = url == "/" ? "index.html" :
+        url.fromFirstOccurrenceOf("/", false, false);
+
+    const auto resource = resourceFileRoot.getChildFile(resourceToRetrieve).createInputStream();
+
+    if (resource) {
+        const auto extension = resourceToRetrieve.fromFirstOccurrenceOf(".", false, false);
+        return Resource{streamToVector(*resource), getMimeForExtension(extension)};
+    }
+
+    return std::nullopt;
 }
